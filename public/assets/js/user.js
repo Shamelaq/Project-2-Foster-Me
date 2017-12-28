@@ -1,31 +1,39 @@
 $(()=>{
+    var message = '';
+
     $('.btn-parent').on('click', ()=>{
+        // switch button colours
+        $('.btn-parent').attr('class', 'btn btn-primary btn-parent');
+        $('.btn-shelter').attr('class', 'btn btn-secondary btn-shelter');
         // show signup form to parent
         $('.signUp').show();
+        // show animal options
         $('.animal').show();
+        // show the right sign up button
         $('.btn-signup-parent').show();
         $('.btn-signup-shelter').hide();
-
-        // show login form to parent
-        // $('.logIn').show();
-        // $('.btn-login-parent').show();
-        // $('.btn-login-shelter').hide();
+        // switch form title
+        $('.parent-title').show();
+        $('.shelter-title').hide();
     });
 
     $('.btn-shelter').on('click', ()=>{
+        // switch button colours
+        $('.btn-parent').attr('class', 'btn btn-secondary btn-parent');
+        $('.btn-shelter').attr('class', 'btn btn-primary btn-shelter');
         // show signup form for shelter
         $('.signUp').show();
+        // hide animal options
         $('.animal').hide();
+        // show the right sign up button
         $('.btn-signup-parent').hide();
         $('.btn-signup-shelter').show();
-
-        // show login form to shelter
-        // $('.logIn').show();
-        // $('.btn-login-parent').hide();
-        // $('.btn-login-shelter').show();
+        // switch form title
+        $('.parent-title').hide();
+        $('.shelter-title').show();
     });
 
-    // when sign up as parent
+    // sign up as parent
     $('.btn-signup-parent').on('click', (e)=>{
         e.preventDefault();
 
@@ -49,13 +57,15 @@ $(()=>{
 
         // check if any field is left empty
         if (!name || !email || !password || !address || !phone) {
-            console.log('Fill the form!');
+            message = 'All fields are required.';
+            $('.signup-notice').html('<div class="alert alert-danger" role="alert">' + message + '</div>');
             return;
         }
         // if all fields are filled
         else {
             // create new user object with details
             var newUser = {
+                usertype: 'parent',
                 name: name,
                 email: email,
                 password: password,
@@ -69,41 +79,36 @@ $(()=>{
             $.ajax({
                 url: '/signup',
                 method: 'POST',
-                data: newUser
+                data: newUser,
+                error: (err)=>{
+                    message = err.responseJSON.message;
+                    $('.signup-notice').html('<div class="alert alert-danger" role="alert">' + message + '</div>');
+                }
             })
-            .done((content)=>{
-                // when successfully signed up, sign in automatically
-                console.log(content);
+            .done((auth)=>{
+                // save token to localstorage
+                localStorage.setItem('token', auth.token);
 
-                console.log('should be in user page now.');
-                $('body').html(content);
+                var userName = newUser.name.replace(/\s/g,''); // remove spaces from user's name
+                var token = localStorage.getItem('token'); // get token from localstorage
+                var tokenObj = {
+                    token: token
+                }
 
-                // send login request with new user's email and password
-                // $.ajax({
-                //     url: '/login',
-                //     method: 'POST',
-                //     data: signupData,
-                //     headers: {
-                //         "Authorization": "Basic " + btoa(signupData.email + ':' + signupData.password)
-                //     }
-                // }).done((result)=>{
-                //     console.log(result);
-                //     console.log('\nafter login request');
-                //     // send redirect request to right user's page with login token received
-                //     $.ajax({
-                //         url: '/user/' + result.id,
-                //         headers: {token: result.token}
-                //     })
-                //     .done((content)=>{
-                //         // replace content with page rendered from server
-                //         $('body').html(content);
-                //     });
-                // });
+                // send user's authentication request to server
+                $.ajax({
+                    url: '/auth/' + userName,
+                    method: 'POST',
+                    headers: tokenObj
+                })
+                .done((content)=>{
+                    $('body').html(content);
+                });
             });
         }
     });
 
-    // when sign up as shelter
+    // sign up as shelter
     $('.btn-signup-shelter').on('click', (e)=>{
         e.preventDefault();
 
@@ -115,13 +120,15 @@ $(()=>{
 
         // check if any field is left empty
         if (!name || !email || !password || !address || !phone) {
-            console.log('Fill the form!');
+            message = 'All fields are required.';
+            $('.signup-notice').html('<div class="alert alert-danger" role="alert">' + message + '</div>');
             return;
         }
         // if all fields are filled
         else {
             // create new user object with details
             var newUser = {
+                usertype: 'shelter',
                 name: name,
                 email: email,
                 password: password,
@@ -131,53 +138,180 @@ $(()=>{
 
             // send signup request with new user's details
             $.ajax({
-                url: '/signup/shelter',
+                url: '/signup',
                 method: 'POST',
-                data: newUser
+                data: newUser,
+                error: (err)=>{
+                    message = err.responseJSON.message;
+                    $('.signup-notice').html('<div class="alert alert-danger" role="alert">' + message + '</div>');
+                }
             })
-            .done((content)=>{
-                // when successfully signed up, sign in automatically
-                console.log(content);
+            .done((auth)=>{
+                // save token to localstorage
+                localStorage.setItem('token', auth.token);
+                
+                var userName = newUser.name.replace(/\s/g,''); // remove spaces from user's name
+                var token = localStorage.getItem('token'); // get token from localstorage
+                var tokenObj = {
+                    token: token
+                }
 
-                console.log('should be in user page now.');
-                $('body').html(content);
+                // send user's authentication request to server
+                $.ajax({
+                    url: '/auth/' + userName,
+                    method: 'POST',
+                    headers: tokenObj
+                })
+                .done((content)=>{
+                    $('body').html(content);
+                });
             });
         }
     });
 
-    // log in as parent
+    // log in
     $('.btn-login').on('click', (e)=>{
         e.preventDefault();
-        console.log('clicked');
 
         var user = {
             email: $('.email-login').val().trim(),
             password: $('.password-login').val().trim()
         };
 
-        console.log(user);
-
         $.ajax({
             url: '/login',
             method: 'POST',
             data: user,
             headers: {
-                "Authorization": "Basic " + btoa(user.email + ':' + user.password)
+                'Authorization': 'Basic ' + btoa(user.email + ':' + user.password)
+            },
+            error: (err)=>{
+                message = err.responseJSON.message;
+                $('.login-notice').html('<div class="alert alert-danger" role="alert">' + message + '</div>');
             }
         })
-        .done((result)=>{
-            console.log('done');
-            console.log(result);
+        .done((auth)=>{
+            // save token to localstorage
+            localStorage.setItem('token', auth.token);
+            
+            var userName = auth.name.replace(/\s/g,''); // remove spaces from user's name
+            var token = localStorage.getItem('token'); // get token from localstorage
+            var tokenObj = {
+                token: token
+            }
 
-            // send redirect request to right user with login token received
+            // send user's authentication request to server
             $.ajax({
-                url: '/user/' + result.token
-                // headers: {token: result.token}
+                url: '/auth/' + userName,
+                method: 'POST',
+                headers: tokenObj
             })
             .done((content)=>{
-                // replace content with page rendered from server
                 $('body').html(content);
+                console.log('run map function here'); // TO DO <===================================================
             });
         });
+    });
+
+    // logout
+    $('.btn-logout').on('click', ()=>{
+
+        // send request to logout
+        $.ajax({
+            url: '/logout',
+            method: 'POST'
+        })
+        .done((content)=>{
+            $('body').html(content);
+        });
+    });
+
+    // save new password
+    $('.btn-save-password').on('click', (e)=>{
+        e.preventDefault();
+
+        var newPassword = $('.password-new1').val().trim();
+        var confirmPassword = $('.password-new2').val().trim();
+
+        // if entered passwords don't match
+        if (newPassword !== confirmPassword) {
+            $('.change-password-notice').html('<div class="alert alert-danger" role="alert">The passwords you entered don\'t match.</div>');
+        }
+        // if entered passwords match
+        else {
+            var token = localStorage.getItem('token'); // get token from localstorage
+            var tokenObj = {
+                token: token
+            };
+            var newPassObj = {
+                password: newPassword
+            };
+            
+            // send request to update password
+            $.ajax({
+                url: '/user',
+                method: 'PUT',
+                data: newPassObj,
+                headers: tokenObj,
+                error: (err)=>{
+                    message = err.responseJSON.message;
+                    $('.login-notice').html('<div class="alert alert-danger" role="alert">' + message + '</div>');
+                }
+            })
+            .done((newpass)=>{
+                $('.change-password-notice').html('<div class="alert alert-success" role="alert">Your new password has been successfully saved.</div>');
+            })
+        }
+    });
+
+    // delete account
+    $('.btn-delete-account').on('click', ()=>{
+        $('.btn-delete-account').hide();
+        $('.confirm-delete').show();
+    });
+
+    // confirm delete account
+    $('.btn-confirm-delete-account').on('click', ()=>{
+        var token = localStorage.getItem('token'); // get token from localstorage
+        var tokenObj = {
+            token: token
+        };
+        var deleteObj = {
+            token: token
+        };
+
+        // send delete request
+        $.ajax({
+            url: '/user',
+            method: 'DELETE',
+            data: deleteObj,
+            headers: tokenObj,
+            error: (err)=>{
+                message = err.responseJSON.message;
+                $('.login-notice').html('<div class="alert alert-danger" role="alert">' + message + '</div>');
+            }
+        })
+        .done((confirm)=>{
+            // if get confirm == 1
+            if(confirm) {
+                // send request to render deleted page
+                $.ajax({
+                    url: '/deleted',
+                    method: 'GET'
+                })
+                .done((content)=>{
+                    $('body').html(content);
+                });
+            }
+            else {
+                $('.notice').html('<div class="alert alert-danger" role="alert">There\'s an error. Please try again.</div>');
+            }
+        });
+    });
+
+    // cancel delete account
+    $('.btn-cancel-delete-account').on('click', ()=>{
+        $('.btn-delete-account').show();
+        $('.confirm-delete').hide();
     });
 });
